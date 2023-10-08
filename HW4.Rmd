@@ -1,0 +1,159 @@
+---
+title: "HW4"
+author: "Hanxin Zheng"
+date: "2023-10-03"
+output: html_document
+---
+
+```{r}
+library(readxl)
+Fresh_Mango_Import_to_U_S_ <- read_excel("Fresh Mango Import to U.S..xlsx")
+
+library(fpp)
+library(fpp2)
+library(TTR)
+mango_ts=ts(Fresh_Mango_Import_to_U_S_$Vol, frequency=12, start=c(2018,1))
+mango_ts
+
+######Forecast Models & Explanations########
+#Mean Forecast
+mean_fc=meanf(mango_ts,5)
+plot(mean_fc)
+attributes(mean_fc)
+mean_fc
+mean_fc$mean
+mean_fc$lower
+mean_fc$upper
+#For mean forecasting, the forecast for next 5 month are the average number of all past 5 years monthly data, which is 97443.54, meaning, for the next 5 month, the fresh mango imported to the U.S. will be 97443.54 pounds each month; For a 80% confidence interval, the imported volume will be 80% likely fall into range of (54177.8,140709.3) pounds, and for a 95% confidence interval, the imported volume will be 95% likely fall into range of (30645.58,164241.5) pounds
+
+#Naive Method
+naive_fc=naive(mango_ts,5)
+plot(naive_fc)
+naive_fc
+attributes(naive_fc)
+naive_fc$mean
+naive_fc$lower
+naive_fc$upper
+#For naive forecasting, the forecast for next 5 month are the last monthly data point of 2022 Dec, which is 51237.11, meaning, for the next 5 month, the fresh mango imported to the U.S. will be 51237.11 pounds each month; For a 80% confidence interval, the imported volume for 2023 Jan will be 80% likely fall into range of (19436.76,83037.47) pounds, and for a 95% confidence interval, the imported volume will for 2023 Jan be 95% likely fall into range of (2602.67,99871.56) pounds; Starting from Feb 2023 the range has negative values, but because the importation volume will not make sense to be negative, so the range will start from 0
+
+#Random Walk add some noise to the naive method
+rwf_fc=rwf(mango_ts,5)
+plot(rwf_fc)
+rwf_fc
+attributes(rwf_fc)
+rwf_fc$mean
+rwf_fc$lower
+rwf_fc$upper
+rwf_fc2=rwf(mango_ts,5,drift=TRUE)
+plot(rwf_fc2)
+attributes(rwf_fc2)
+rwf_fc2
+rwf_fc2$mean
+rwf_fc2$lower
+rwf_fc2$upper
+#random walk forecast without drift is same as naive method. random walk forecast with drift takes accounts into noise in the reality based on the naive method. With drift, forecast importation volume for 2023 Jan is 51000.16 pounds, for Feb is 50763.21 lbs, for March is 50526.26 lbs, for Apr is 50289.31 lbs, for May is 50052.36 lbs, which we can see a downward trend. For a 80% confidence interval, the imported volume for 2023 Jan will be 80% likely fall into range of (18657.649,83342.68) pounds, and for a 95% confidence interval, the imported volume will for 2023 Jan be 95% likely fall into range of (1536.557,100463.8) pounds
+
+#Seasonal Naive
+snaive_fc=snaive(mango_ts,5)
+plot(snaive_fc)
+snaive_fc
+attributes(snaive_fc)
+snaive_fc$mean
+snaive_fc$lower
+snaive_fc$upper
+#Seasonal Naive takes seasonality into account based on the naive method. forecast importation volume for 2023 Jan is 53253.32 pounds, for Feb is 85790.44 lbs, for March is 87664.27 lbs, for Apr is 127199.47 lbs, for May is 119010.26 lbs. For a 80% confidence interval, the imported volume for 2023 Jan will be 80% likely fall into range of (29020.89,77485.75) pounds, and for a 95% confidence interval, the imported volume will for 2023 Jan be 95% likely fall into range of (16193.02,90313.62) pounds. And when taking seasonality into accounts, there is no more negative forecast, meaning the data set does has seasonality in it. 
+
+#Moving Average
+MA5_fc=ma(mango_ts,order=5)
+plot(MA5_fc)
+MA5_fc
+attributes(MA5_fc)
+#moving average using 5 periods is forecast based on the latest 5 values compared to the point being forecast and giving equal weights to all 5 values starting from the sixth point position which is 2018 June, hence from 2018 Jan to 2018 May there is no forecast. The volume of fresh mango imported into the U.S. was declining year by year with seasonality in around middle of the year around summer time
+MA9_fc=ma(mango_ts,order=9)
+plot(MA9_fc)
+MA9_fc
+attributes(MA9_fc)
+#moving average using 9 periods is forecast based on the latest 9 values compared to the point being forecast and giving equal weights to all 9 values starting from the tenth point position which is 2018 Oct, hence from 2018 Jan to 2018 Sept there is no forecast. Here, we can still see a yearly downward trend in fresh mango importation and seasonality, but the downward trend is more severe then the 5 period moving average.
+
+#Exponential Smoothing State Space Model
+ets_fc=ets(mango_ts)
+plot(ets_fc)
+attributes(ets_fc)
+ets_fc
+#The alpha is 0.0038, the beta is 0.0038, and the gamma is 1e-04, meaning that during forecast, more weight for all level, trend, and seasonality were given to past historical values instead of recent observations. The level is 112160.2982 lbs for volume of fresh mango imported each month with a downward trend of 203.6407 lbs each month, and in Jan the seasonality effect puts a decrease value in prediction of 28831.45, and only from May to September the seasonality has a positive value, and in June and July the seasonality numbers are the largest, meaning the highest two volume of fresh mango importation are in June and July in each year, which is the seasonality is in June and July. 
+
+#SSE
+SSE_simple=HoltWinters(mango_ts,beta = FALSE, gamma=FALSE)
+plot(SSE_simple)
+SSE_simple
+#simple exponential smoothing here only predicts level without taking considerations of trend and seasonality. The alpha level is 0.9999, meaning the forecast is largely based on recent data. And the prediction of level is 51237.94 lbs added to each month.
+
+#SSE with Trend
+SSE_trend=HoltWinters(mango_ts, gamma=FALSE)
+plot(SSE_trend)
+SSE_trend
+SSE_trend$fitted
+#Here, it takes trend into accounts, the alpha level is 1, which is the predicted level value is the last data, the beta is 0.123 which means more historical data is considered. For each forecast point, the level is 51237.114 lbs added for each month and deduct 4334,598 lbs each month for trend. 
+
+#Holts Winters
+SSE_winters=HoltWinters(mango_ts)
+plot(SSE_winters)
+SSE_winters
+#Here, in Holts Winters model, all level, trend, and seasonality are calculated into forecast. The alphas for level is 0.0075 which is based on more historical data, and it is 83494.0694 lbs added for each month; beta is 1 meaning the trend is based on last trend point in the data set, the trend has a -687.7386 lbs, meaning for each month the volume should deduct by 687.7386 lbs; the gamma is 0.1849 which is also primarily based on the historical data point, and the seasonal index is different from Jan to Dec, which based on the value, volume will be deduct or added to the level and trend base. For example, seasonality in Jan is -400995.7833, meaning in Jan 40995.7833 lbs will be deduct from the forecast of level and trend. The seasonality index is only positive from April to August, meaning during these month the volume of fresh mango importation is going upward during a year
+
+
+#############Plot Models in Chart###################
+plot(mean_fc)
+lines(naive_fc$mean,col="yellow")
+lines(rwf_fc2$mean,col="pink")
+lines(snaive_fc$mean,col="brown")
+lines(MA5_fc,col="green")
+lines(MA9_fc,col="blue")
+lines(SSE_simple$fitted[,1],col="purple")
+lines(SSE_trend$fitted[,1],col="orange")
+lines(SSE_winters$fitted[,1],col="red")
+
+##############Accuracy Measurement-MAPE###########
+fc_mean=forecast(mean_fc,h=5)
+plot(fc_mean)
+accuracy(fc_mean) #MAPE=34.52036
+
+fc_naive=forecast(naive_fc,h=5)
+plot(fc_naive)
+accuracy(fc_naive)#MAPE=22.22056
+
+fc_rwf=forecast(rwf_fc2,h=5)
+plot(fc_rwf)
+accuracy(fc_rwf)#MAPE=22.20156
+
+fc_snaive=forecast(snaive_fc,h=5)
+plot(fc_snaive)
+accuracy(fc_snaive)#MAPE=18.04173
+
+fc_ets=forecast(ets_fc,h=5)
+plot(fc_ets)
+accuracy(fc_ets)#MAPE=9.615363
+
+fc_SSE_simple=forecast(SSE_simple,h=5)
+plot(fc_SSE_simple)
+accuracy(fc_SSE_simple)#MAPE 22.22051
+
+fc_SSE_trend=forecast(SSE_trend,h=5)
+plot(fc_SSE_trend)
+accuracy(fc_SSE_trend)#MAPE=24.28076
+
+fc_SSE_winters=forecast(SSE_winters,h=5)
+plot(fc_SSE_winters)
+accuracy(fc_SSE_winters)#MAPE=11.73399
+
+fc_MA5=forecast(na.omit(MA5_fc),h=5)
+plot(fc_MA5)
+accuracy(fc_MA5)#MAPE=2.520939
+
+fc_MA9=forecast(na.omit(MA9_fc),h=5)
+plot(fc_MA9)
+accuracy(fc_MA9)#MAPE=1.202735
+
+#When using MAPE as accuracy measurement, the best model is moving average with 9 period forecasting model because it has the lowest MAPE value of 1.202735% among all the forecasting models.
+
+```
